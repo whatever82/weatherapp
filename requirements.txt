@@ -1,0 +1,7 @@
+django
+openmeteo-requests
+requests-cache
+retry-requests
+pandas
+asgiref
+httpx
