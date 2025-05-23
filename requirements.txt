@@ -5,3 +5,4 @@ retry-requests
 pandas
 asgiref
 httpx
+psycopg2

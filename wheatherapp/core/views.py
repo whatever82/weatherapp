@@ -1,6 +1,8 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from asgiref.sync import sync_to_async
+from django.utils.timezone import make_aware
+from datetime import datetime
 
 from .models import Location, HistoricalWeather
 from .utils import get_location, get_historical_weather
@@ -45,17 +47,28 @@ async def history(request, latitude, longitude, start_date, end_date):
     measurement_keys = daily.keys()
     timestamps = daily.get('time', [])
 
+    await sync_to_async(HistoricalWeather.objects.filter(location=location, measurement__in=measurement_keys).delete)()
+
+    records_to_insert = []
+
     for i, date in enumerate(timestamps):
+        aware_date = make_aware(datetime.strptime(date, "%Y-%m-%d"))
+
         for key in measurement_keys:
             if key != 'time':
                 value = daily[key][i]
 
-                await sync_to_async(HistoricalWeather.objects.get_or_create)(
-                    location=location,
-                    measurement=key,
-                    time=date,
-                    value=value
+                records_to_insert.append(
+                    HistoricalWeather(
+                        location=location,
+                        measurement=key,
+                        time=aware_date,
+                        value=value
+                    )
                 )
 
+    if records_to_insert:
+        await sync_to_async(HistoricalWeather.objects.bulk_create)(records_to_insert)
 
-    return JsonResponse({"message": "records uploaded!", "count": len(timestamps)})
+
+    return JsonResponse({"message": "records uploaded!", "count": len(records_to_insert)})
